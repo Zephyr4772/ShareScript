@@ -22,7 +22,7 @@ def main():
     enriched = context.get("enriched_analysis")
     print(f"-> Success! Enriched analysis returned data: {bool(enriched)}")
     if not enriched:
-        print("-> WARNING: enriched_analysis is empty. Azure credentials may be missing or failing.")
+        print("-> WARNING: enriched_analysis is empty. Check LLM_MODEL and your API key in .env.")
     else:
         print(f"   Tech Stack detected: {enriched.get('tech_stack')}")
         

@@ -73,6 +73,9 @@ def generate_all_charts(context: dict) -> dict:
     enriched = context.get('enriched_analysis', {})
     out_dir = get_temp_dir()
     
+    if not enriched:
+        print("--> WARNING: enriched_analysis is empty. Check LLM_MODEL and your API key in .env.")
+    
     return {
         "status": "success",
         "output_dir": out_dir,
@@ -102,7 +105,7 @@ def determine_deployment_url(context: dict) -> str:
 def capture_screenshot(context: dict) -> dict:
     url = determine_deployment_url(context)
     if not url:
-        return {"screenshot": None, "reason": "No deployment URL found"}
+        return {"status": "success", "screenshot": None, "reason": "No deployment URL found"}
         
     out_dir = get_temp_dir()
     out_path = os.path.join(out_dir, "deployment_screenshot.png")
