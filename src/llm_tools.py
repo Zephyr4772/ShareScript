@@ -1,25 +1,6 @@
 import os
 import json
-from openai import OpenAI
-
-_client = None
-
-def get_openai_client() -> OpenAI:
-    """
-    Initializes the standard OpenAI client.
-    Expects OPENAI_API_KEY to be set.
-    """
-    global _client
-    if _client is not None:
-        return _client
-        
-    api_key = os.environ.get("OPENAI_API_KEY")
-    
-    if not api_key:
-        print("Warning: OPENAI_API_KEY not found. LLM calls will fail.")
-        
-    _client = OpenAI(api_key=api_key)
-    return _client
+from litellm import completion
 
 def summarize_context_for_llm(context: dict, enriched_analysis: str = None) -> str:
     """Produces a token-efficient string summary for LLM prompts."""
@@ -51,8 +32,8 @@ Key files present: {', '.join(context.get('key_files', {}).keys())}
 
 def analyze_codebase(context: dict) -> dict:
     """Master analysis — what it does, who it's for, key features, tech stack"""
-    client = get_openai_client()
     summary = summarize_context_for_llm(context)
+    model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
     
     prompt = f"""
     Analyze the following GitHub repository codebase and metadata.
@@ -69,8 +50,8 @@ def analyze_codebase(context: dict) -> dict:
     """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = completion(
+            model=model,
             messages=[
                 {"role": "system", "content": "You are a code analysis assistant. Respond only with valid JSON."},
                 {"role": "user", "content": prompt}
@@ -84,8 +65,8 @@ def analyze_codebase(context: dict) -> dict:
 
 def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
     """Full README markdown output"""
-    client = get_openai_client()
     summary = summarize_context_for_llm(context, json.dumps(enriched_analysis))
+    model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
     
     prompt = f"""
     Write a high-quality, professional README.md for the following repository.
@@ -99,8 +80,8 @@ def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
     """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = completion(
+            model=model,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.choices[0].message.content
@@ -110,8 +91,8 @@ def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
 
 def generate_social_posts(context: dict, platforms: list, enriched_analysis: dict) -> dict:
     """Returns dict of {platform: post_content}"""
-    client = get_openai_client()
     summary = summarize_context_for_llm(context, json.dumps(enriched_analysis))
+    model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
     
     prompt = f"""
     Generate social media launch posts for this repository for the following platforms: {', '.join(platforms)}.
@@ -126,8 +107,8 @@ def generate_social_posts(context: dict, platforms: list, enriched_analysis: dic
     """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = completion(
+            model=model,
             messages=[
                 {"role": "system", "content": "You are a social media copywriter. Respond only with valid JSON."},
                 {"role": "user", "content": prompt}

@@ -45,7 +45,13 @@ The system is built on Python and `FastMCP`.
 2. Run `setup.bat` (Windows) to install `requirements.txt` and the Playwright Chromium binaries.
 3. Create a `.env` file in the root of `shipscript` with the following variables:
    ```env
-   OPENAI_API_KEY="sk-<your-openai-api-key>"
+   # The model to use (e.g. "gpt-4o", "gemini/gemini-1.5-flash", "ollama/llama3")
+   LLM_MODEL="gemini/gemini-1.5-flash"
+   
+   # Add the key for whatever provider you chose:
+   GEMINI_API_KEY="<your-gemini-key>"
+   # OPENAI_API_KEY="sk-<your-openai-api-key>"
+   
    GITHUB_PAT="<your-github-personal-access-token-with-repo-scope>"
    ```
 4. Run `python test_golden_path.py` to verify the pipeline works end-to-end.
