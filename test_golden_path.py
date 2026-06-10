@@ -2,80 +2,135 @@ import sys
 import os
 from dotenv import load_dotenv
 
+# Force UTF-8 output on Windows
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 load_dotenv()
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-# Ensure src is in the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+from server import (
+    analyze_repo, generate_readme, generate_visuals, capture_screenshot,
+    generate_social_content, generate_social_cards, generate_presentation,
+    generate_roadmap, package_output,
+)
 
-from server import analyze_repo, generate_readme, generate_visuals, capture_screenshot, generate_social_content, package_output
 
 def main():
-    repo_url = "https://github.com/Zephyr4772/eduedu"
-    print(f"Testing against: {repo_url}\n")
-    
-    print("1. analyze_repo...")
-    repo_res = analyze_repo(repo_url)
-    if repo_res["status"] != "success":
-        print("analyze_repo failed:", repo_res)
-        return
-    context = repo_res["context"]
-    enriched = context.get("enriched_analysis")
-    print(f"-> Success! Enriched analysis returned data: {bool(enriched)}")
-    if not enriched:
-        print("-> WARNING: enriched_analysis is empty. Check LLM_MODEL and your API key in .env.")
-    else:
-        print(f"   Tech Stack detected: {enriched.get('tech_stack')}")
-        
-    print("\n2. generate_readme...")
-    readme_res = generate_readme(context)
-    readme_content = ""
-    if readme_res["status"] == "success":
-        readme_content = readme_res["readme"]
-        print(f"-> Success! Generated {len(readme_content)} chars of README.")
-    else:
-        print("-> generate_readme failed:", readme_res)
+    repo_url = "https://github.com/Zephyr4772/gemcart"
 
+    print(f"ShipScript v2 -- Testing against: {repo_url}\n")
+
+    # ── 1. Analyze ──────────────────────────────────────────────────────────
+    print("1. analyze_repo...")
+    res = analyze_repo(repo_url)
+    if res["status"] != "success":
+        print("FAILED:", res)
+        return
+    context = res["context"]
+    enriched = context.get("enriched_analysis", {})
+    print(f"   [OK] Frameworks detected: {context.get('detected_frameworks')}")
+    print(f"   [OK] Language: {context.get('language')}")
+    print(f"   [OK] Deployment URL: {context.get('deployment_url')} ({context.get('deployment_url_source')})")
+    print(f"   [OK] Tech Stack (LLM): {enriched.get('tech_stack')}")
+    print(f"   [OK] Tagline: {enriched.get('tagline')}")
+    print(f"   [OK] Project type: {enriched.get('project_type')}")
+
+    # ── 2. README ────────────────────────────────────────────────────────────
+    print("\n2. generate_readme...")
+    readme_content = ""
+    res = generate_readme(context)
+    if res["status"] == "success":
+        readme_content = res["readme"]
+        print(f"   [OK] {len(readme_content)} chars")
+        print(f"   Preview: {readme_content[:150].strip()}")
+    else:
+        print("   FAILED:", res)
+
+    # ── 3. Visuals ───────────────────────────────────────────────────────────
     print("\n3. generate_visuals...")
-    visuals_res = generate_visuals(context)
     visual_paths = {}
-    if visuals_res["status"] == "success":
-        visual_paths = {k: v for k, v in visuals_res.items() if k in ["language_donut", "tech_stack", "stats_card"]}
-        print(f"-> Success! Generated visual paths:")
+    res = generate_visuals(context)
+    if res["status"] == "success":
+        visual_paths = {k: v for k, v in res.items()
+                        if k in ("language_donut", "tech_stack", "stats_card")}
         for k, v in visual_paths.items():
             exists = os.path.exists(v) if v else False
-            print(f"   {k}: {v} (Exists: {exists})")
+            print(f"   {'[OK]' if exists else '[SKIP]'} {k}: {v}")
     else:
-        print("-> generate_visuals failed:", visuals_res)
-        
+        print("   FAILED:", res)
+
+    # ── 4. Screenshot ────────────────────────────────────────────────────────
     print("\n4. capture_screenshot...")
-    screenshot_res = capture_screenshot(context)
-    if screenshot_res["status"] == "success":
-        scr_path = screenshot_res.get("screenshot")
-        if scr_path and os.path.exists(scr_path):
-            print(f"-> Success! Screenshot saved to {scr_path}")
-            visual_paths["screenshot"] = scr_path
-        else:
-            print(f"-> No screenshot captured. Reason: {screenshot_res.get('reason')}")
+    res = capture_screenshot(context)
+    if res.get("screenshot") and os.path.exists(res["screenshot"]):
+        visual_paths["screenshot"] = res["screenshot"]
+        print(f"   [OK] {res['screenshot']}")
+        print(f"   Source: {res.get('source')}")
     else:
-        print("-> capture_screenshot failed:", screenshot_res)
-        
+        print(f"   [SKIP] {res.get('reason')}")
+
+    # ── 5. Social posts ──────────────────────────────────────────────────────
     print("\n5. generate_social_content...")
-    social_res = generate_social_content(context, "linkedin,twitter,devto")
     social_posts = {}
-    if social_res["status"] == "success":
-        social_posts = social_res["posts"]
-        print(f"-> Success! Generated posts for: {list(social_posts.keys())}")
+    res = generate_social_content(context, "linkedin,twitter,devto")
+    if res["status"] == "success":
+        social_posts = res["posts"]
+        print(f"   [OK] Platforms: {list(social_posts.keys())}")
+        if "twitter" in social_posts:
+            preview = str(social_posts['twitter'])[:120].encode('ascii', errors='replace').decode()
+            print(f"   Twitter preview: {preview}...")
     else:
-        print("-> generate_social_content failed:", social_res)
-        
-    print("\n6. package_output...")
-    pkg_res = package_output(context, visual_paths, social_posts, readme_content)
-    if pkg_res["status"] == "success":
-        zip_path = pkg_res["zip_path"]
-        print(f"-> Success! ZIP created at {zip_path}")
-        print(f"   ZIP exists: {os.path.exists(zip_path)}")
+        print("   FAILED:", res)
+
+    # ── 5b. Social cards ─────────────────────────────────────────────────────
+    print("\n5b. generate_social_cards...")
+    social_cards = {}
+    if social_posts:
+        res = generate_social_cards(context, social_posts)
+        if res["status"] == "success":
+            social_cards = res["cards"]
+            for platform, path in social_cards.items():
+                exists = os.path.exists(path) if path else False
+                print(f"   {'[OK]' if exists else '[FAIL]'} {platform}: {path}")
+        else:
+            print("   FAILED:", res)
+
+    # ── 6. Presentation ──────────────────────────────────────────────────────
+    print("\n6. generate_presentation...")
+    presentation_path = None
+    res = generate_presentation(context)
+    if res["status"] == "success":
+        presentation_path = res["presentation_path"]
+        print(f"   [OK] {presentation_path}")
     else:
-        print("-> package_output failed:", pkg_res)
+        print("   FAILED:", res)
+
+    # ── 7. Roadmap ───────────────────────────────────────────────────────────
+    print("\n7. generate_roadmap...")
+    roadmap_path = None
+    res = generate_roadmap(context)
+    if res["status"] == "success":
+        roadmap_path = res["roadmap_path"]
+        print(f"   [OK] {roadmap_path}")
+    else:
+        print("   FAILED:", res)
+
+    # ── 8. Package ZIP ───────────────────────────────────────────────────────
+    print("\n8. package_output...")
+    res = package_output(
+        context, visual_paths, social_posts, readme_content,
+        social_cards=social_cards,
+        presentation_path=presentation_path,
+        roadmap_path=roadmap_path,
+    )
+    if res["status"] == "success":
+        zip_path = res["zip_path"]
+        print(f"\nSUCCESS! ZIP at: {zip_path}")
+        print(f"Exists: {os.path.exists(zip_path)}")
+    else:
+        print("FAILED:", res)
+
 
 if __name__ == "__main__":
     main()

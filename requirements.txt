@@ -5,3 +5,8 @@ openai
 matplotlib
 python-dotenv
 litellm
+requests
+plotly
+kaleido
+pillow
+gradio
