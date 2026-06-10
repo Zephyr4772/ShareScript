@@ -1,34 +1,24 @@
 import os
 import json
-from openai import AzureOpenAI
-
-# Default API version updated to a recent one
-DEFAULT_API_VERSION = "2024-05-01-preview"
-AZURE_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
+from openai import OpenAI
 
 _client = None
 
-def get_azure_openai_client() -> AzureOpenAI:
+def get_openai_client() -> OpenAI:
     """
-    Initializes the Azure OpenAI client.
-    Expects AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_API_VERSION to be set.
+    Initializes the standard OpenAI client.
+    Expects OPENAI_API_KEY to be set.
     """
     global _client
     if _client is not None:
         return _client
         
-    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
-    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
+    api_key = os.environ.get("OPENAI_API_KEY")
     
-    if not endpoint or not api_key:
-        print("Warning: Azure OpenAI credentials not found. LLM calls will fail.")
+    if not api_key:
+        print("Warning: OPENAI_API_KEY not found. LLM calls will fail.")
         
-    _client = AzureOpenAI(
-        azure_endpoint=endpoint,
-        api_key=api_key,
-        api_version=api_version
-    )
+    _client = OpenAI(api_key=api_key)
     return _client
 
 def summarize_context_for_llm(context: dict, enriched_analysis: str = None) -> str:
@@ -61,7 +51,7 @@ Key files present: {', '.join(context.get('key_files', {}).keys())}
 
 def analyze_codebase(context: dict) -> dict:
     """Master analysis — what it does, who it's for, key features, tech stack"""
-    client = get_azure_openai_client()
+    client = get_openai_client()
     summary = summarize_context_for_llm(context)
     
     prompt = f"""
@@ -80,8 +70,11 @@ def analyze_codebase(context: dict) -> dict:
     
     try:
         response = client.chat.completions.create(
-            model=AZURE_DEPLOYMENT_NAME,
-            messages=[{"role": "user", "content": prompt}],
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a code analysis assistant. Respond only with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content)
@@ -91,7 +84,7 @@ def analyze_codebase(context: dict) -> dict:
 
 def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
     """Full README markdown output"""
-    client = get_azure_openai_client()
+    client = get_openai_client()
     summary = summarize_context_for_llm(context, json.dumps(enriched_analysis))
     
     prompt = f"""
@@ -107,7 +100,7 @@ def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
     
     try:
         response = client.chat.completions.create(
-            model=AZURE_DEPLOYMENT_NAME,
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
         )
         return response.choices[0].message.content
@@ -117,7 +110,7 @@ def generate_readme_content(context: dict, enriched_analysis: dict) -> str:
 
 def generate_social_posts(context: dict, platforms: list, enriched_analysis: dict) -> dict:
     """Returns dict of {platform: post_content}"""
-    client = get_azure_openai_client()
+    client = get_openai_client()
     summary = summarize_context_for_llm(context, json.dumps(enriched_analysis))
     
     prompt = f"""
@@ -134,8 +127,11 @@ def generate_social_posts(context: dict, platforms: list, enriched_analysis: dic
     
     try:
         response = client.chat.completions.create(
-            model=AZURE_DEPLOYMENT_NAME,
-            messages=[{"role": "user", "content": prompt}],
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a social media copywriter. Respond only with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content)
