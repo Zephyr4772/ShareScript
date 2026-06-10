@@ -1,0 +1,6 @@
+mcp
+PyGithub
+playwright
+openai
+matplotlib
+python-dotenv
